@@ -29,6 +29,8 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     private SensorManager mSensorManager;
     private Sensor mCompass, mAccelerometer;
     float[] mAcc;
+    int mAccTiltCounter = 0;
+    int mAccFlatCounter = 0;
     //variables for logging
     private Sensor mGyroscope;
     private Sensor mGravityS;
@@ -71,11 +73,48 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     @Override
     public final void onSensorChanged(SensorEvent event) {
         if (m_ioio_thread != null) {
-            setText(String.format("%.3f", m_ioio_thread.getIrLeftReading()), irLeftText);
-            setText(String.format("%.3f", m_ioio_thread.getIrCenterReading()), irCenterText);
-            setText(String.format("%.3f", m_ioio_thread.getIrRightReading()), irRightText);
+
+            float irLeftReading = m_ioio_thread.getIrLeftReading();
+            float irCenterReading = m_ioio_thread.getIrCenterReading();
+            float irRightReading = m_ioio_thread.getIrRightReading();
+
+            setText(String.format("%.3f", irLeftReading), irLeftText);
+            setText(String.format("%.3f", irCenterReading), irCenterText);
+            setText(String.format("%.3f", irRightReading), irRightText);
+
             if (btnStartStop.isChecked()) {
-                m_ioio_thread.move(0.5f, 0.5f, true, true);
+
+                if (mAcc[2] > 3 || mAcc[2] < -3)
+                {
+                    mAccTiltCounter++;
+                } else {
+                    mAccFlatCounter++;
+                }
+
+                if (mAccFlatCounter == 100) {
+                    mAccFlatCounter = 0;
+                    mAccTiltCounter = 0;
+                }
+
+                if (mAccTiltCounter == 30) {
+                    btnStartStop.setChecked(false);
+                    mAccTiltCounter = 0;
+                }
+
+                if (irCenterReading < 0.6f) {
+                    m_ioio_thread.move(0.5f, 0.5f, true, true);
+                } else {
+                    m_ioio_thread.turn(1200);
+                }
+
+                if (irLeftReading > 0.6f) {
+                    m_ioio_thread.turn(1800);
+                }
+
+                if (irRightReading > 0.6f) {
+                    m_ioio_thread.turn(1200);
+                }
+
             } else {
                 m_ioio_thread.move(0.0f, 0.0f, false, false);
             }
@@ -88,8 +127,17 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         }
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE)
             mGyro = event.values;
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             mAcc = event.values;
+            if (mAcc != null) {
+                int count = 1;
+                for (float reading : mAcc) {
+                    System.out.println("ACCEL " + count + ": " + reading);
+                    count++;
+                }
+                System.out.println("--------");
+            }
+        }
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
             mGeomagnetic = event.values;
     }
