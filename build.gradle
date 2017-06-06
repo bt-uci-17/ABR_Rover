@@ -23,6 +23,8 @@ dependencies {
   compile 'com.github.ytai.ioio:IOIOLibAndroidBluetooth:5.05'
   compile 'com.github.ytai.ioio:IOIOLibAndroidAccessory:5.05'
   compile 'com.github.ytai.ioio:IOIOLibAndroidDevice:5.05'
+  compile 'com.google.zxing:core:3.2.0'
+  compile project(path: ':openCVLibrary310')
 }
 
 repositories {

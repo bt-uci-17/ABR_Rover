@@ -3,21 +3,48 @@ package abr.auto;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.SurfaceView;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.ToggleButton;
+
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.ChecksumException;
+import com.google.zxing.FormatException;
+import com.google.zxing.LuminanceSource;
+import com.google.zxing.NotFoundException;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.Reader;
+import com.google.zxing.Result;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.multi.qrcode.QRCodeMultiReader;
+
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.CameraBridgeViewBase;
+import org.opencv.android.JavaCameraView;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
 
 import ioio.lib.util.IOIOLooper;
 import ioio.lib.util.IOIOLooperProvider;
 import ioio.lib.util.android.IOIOAndroidApplicationHelper;
 
 // implements IOIOLooperProvider: from IOIOActivity
-public class Main_activity extends Activity implements IOIOLooperProvider, SensorEventListener {
+public class Main_activity extends Activity implements IOIOLooperProvider, SensorEventListener, CameraBridgeViewBase.CvCameraViewListener2 {
 
     private final IOIOAndroidApplicationHelper helper_ = new IOIOAndroidApplicationHelper(this, this);            // from IOIOActivity
     private TextView irLeftText;
@@ -38,10 +65,27 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     float[] mGyro;
     float[] mGeomagnetic;
 
+    // variables for OpenCV
+    private static final String TAG = "----- OpenCV -----";
+    private CameraBridgeViewBase mOpenCvCameraView;
+    // These variables are used (at the moment) to fix camera orientation from 270degree to 0degree
+    Mat mRgba;
+    Mat mRgbaF;
+    Mat mRgbaT;
+
+    private static boolean isZxingThreadRunning;
+
     IOIO_thread_rover_tank m_ioio_thread;
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        //Remove title bar
+        this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        //Remove notification bar
+        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
         setContentView(R.layout.main);
 
         irLeftText = (TextView) findViewById(R.id.irLeft);
@@ -58,8 +102,20 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
 
         helper_.create();        // from IOIOActivity
 
-        // enableUi(false);
+        // TEST OPENCV
+        if (!OpenCVLoader.initDebug()) {
+            Log.e(this.getClass().getSimpleName(), "  OpenCVLoader.initDebug(), not working.");
+        } else {
+            Log.e(this.getClass().getSimpleName(), "  OpenCVLoader.initDebug(), working.");
+        }
 
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setContentView(R.layout.main);
+        mOpenCvCameraView = (JavaCameraView) findViewById(R.id.HelloOpenCvView);
+        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
+        mOpenCvCameraView.setCvCameraViewListener(this);
+
+        // enableUi(false);
     }
 
     @Override
@@ -84,6 +140,8 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
 
             if (btnStartStop.isChecked()) {
 
+                // ********** REMEMBER TO UNCOMMENT THIS BLOCK ****************
+                /*
                 if (mAcc[2] > 3 || mAcc[2] < -3)
                 {
                     mAccTiltCounter++;
@@ -114,6 +172,8 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
                 if (irRightReading > 0.6f) {
                     m_ioio_thread.turn(1200);
                 }
+                */
+                // ***********************************************************
 
             } else {
                 m_ioio_thread.move(0.0f, 0.0f, false, false);
@@ -132,10 +192,10 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
             if (mAcc != null) {
                 int count = 1;
                 for (float reading : mAcc) {
-                    System.out.println("ACCEL " + count + ": " + reading);
-                    count++;
+                    //System.out.println("ACCEL " + count + ": " + reading);
+                    //count++;
                 }
-                System.out.println("--------");
+                //System.out.println("--------");
             }
         }
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
@@ -188,6 +248,14 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_NORMAL);
         mSensorManager.registerListener(this, mGravityS, SensorManager.SENSOR_DELAY_NORMAL);
         helper_.start();        // from IOIOActivity
+
+        if (!OpenCVLoader.initDebug()) {
+            Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_1_0, this, mLoaderCallback);
+        } else {
+            Log.d(TAG, "OpenCV library found inside package. Using it!");
+            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+        }
         // Log.d("robo", "onResume");
     }
 
@@ -196,6 +264,8 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     public void onPause() {
         super.onPause();
         mSensorManager.unregisterListener(this);
+        if (mOpenCvCameraView != null)
+            mOpenCvCameraView.disableView();
         // Log.d("robo", "onPause");
     }
 
@@ -209,6 +279,9 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     protected void onDestroy() {
         helper_.destroy();
         super.onDestroy();
+
+        if (mOpenCvCameraView != null)
+            mOpenCvCameraView.disableView();
     }
 
     @Override
@@ -229,5 +302,96 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         if ((intent.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK) != 0) {
             helper_.restart();
         }
+    }
+
+    @Override
+    public void onCameraViewStarted(int width, int height) {
+        Log.i(TAG, "STARTED CAMERA VIEW!!! " + width + "x" + height);
+        mRgba = new Mat(height, width, CvType.CV_8UC4);
+        mRgbaF = new Mat(height, width, CvType.CV_8UC4);
+        mRgbaT = new Mat(width, width, CvType.CV_8UC4);
+    }
+
+    @Override
+    public void onCameraViewStopped() {
+        mRgba.release();
+    }
+
+    @Override
+    public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+
+        //Log.i(TAG, "Input frame is " + inputFrame.rgba().width() + " by " + inputFrame.rgba().height());
+        mRgba = inputFrame.rgba();
+
+        // Rotate mRgba 90 degrees
+        //Core.transpose(mRgba, mRgbaT);
+        //Size size = new Size(100, 100);
+        //Imgproc.resize(mRgbaT, mRgbaF, mRgbaF.size(), 2,0, 0);
+        //Core.flip(mRgbaF, mRgba, 1 );
+
+        Thread zxingThread = new Thread() {
+            @Override
+            public void run() {
+                if (isZxingThreadRunning) {
+                    return;
+                }
+
+                isZxingThreadRunning = true;
+                try {
+                    zxing();
+                } catch (ChecksumException e) {
+                    e.printStackTrace();
+                } catch (FormatException e) {
+                    e.printStackTrace();
+                }
+                isZxingThreadRunning = false;
+            }
+        };
+
+        zxingThread.start();
+
+        return mRgba; // This function must return
+    }
+
+
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS:
+                {
+                    Log.i(TAG, "OpenCV loaded successfully");
+                    mOpenCvCameraView.enableView();
+                } break;
+                default:
+                {
+                    super.onManagerConnected(status);
+                } break;
+            }
+        }
+    };
+
+    public void zxing() throws ChecksumException, FormatException {
+
+        Bitmap bMap = Bitmap.createBitmap(mRgba.width(), mRgba.height(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(mRgba, bMap);
+        int[] intArray = new int[bMap.getWidth()*bMap.getHeight()];
+        //copy pixel data from the Bitmap into the 'intArray' array
+        bMap.getPixels(intArray, 0, bMap.getWidth(), 0, 0, bMap.getWidth(), bMap.getHeight());
+
+        LuminanceSource source = new RGBLuminanceSource(bMap.getWidth(), bMap.getHeight(),intArray);
+
+        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+        Reader reader = new QRCodeMultiReader();
+
+        try {
+            Result result = reader.decode(bitmap);
+            Log.i(TAG, "CODE FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            Log.i(TAG, result.getText());
+        } catch (NotFoundException e) {
+            Log.i(TAG, "Code Not Found");
+            e.printStackTrace();
+        }
+
     }
 }
