@@ -52,12 +52,15 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     private TextView irRightText;
     private ToggleButton btnStartStop;
 
+    float irLeftReading;
+    float irCenterReading;
+    float irRightReading;
+
     //variables for compass
     private SensorManager mSensorManager;
     private Sensor mCompass, mAccelerometer;
     float[] mAcc;
-    int mAccTiltCounter = 0;
-    int mAccFlatCounter = 0;
+
     //variables for logging
     private Sensor mGyroscope;
     private Sensor mGravityS;
@@ -93,6 +96,7 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         irRightText = (TextView) findViewById(R.id.irRight);
         btnStartStop = (ToggleButton) findViewById(R.id.buttonStartStop);
 
+
         //set up compass
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mCompass = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
@@ -110,12 +114,11 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         }
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        setContentView(R.layout.main);
         mOpenCvCameraView = (JavaCameraView) findViewById(R.id.HelloOpenCvView);
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
         mOpenCvCameraView.setCvCameraViewListener(this);
 
-        // enableUi(false);
+        enableUi(true);
     }
 
     @Override
@@ -128,11 +131,12 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
     // Good time to get IR values and send move commands to the robot
     @Override
     public final void onSensorChanged(SensorEvent event) {
+
         if (m_ioio_thread != null) {
 
-            float irLeftReading = m_ioio_thread.getIrLeftReading();
-            float irCenterReading = m_ioio_thread.getIrCenterReading();
-            float irRightReading = m_ioio_thread.getIrRightReading();
+            irLeftReading = m_ioio_thread.getIrLeftReading();
+            irCenterReading = m_ioio_thread.getIrCenterReading();
+            irRightReading = m_ioio_thread.getIrRightReading();
 
             setText(String.format("%.3f", irLeftReading), irLeftText);
             setText(String.format("%.3f", irCenterReading), irCenterText);
@@ -140,27 +144,8 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
 
             if (btnStartStop.isChecked()) {
 
-                // ********** REMEMBER TO UNCOMMENT THIS BLOCK ****************
-                /*
-                if (mAcc[2] > 3 || mAcc[2] < -3)
-                {
-                    mAccTiltCounter++;
-                } else {
-                    mAccFlatCounter++;
-                }
-
-                if (mAccFlatCounter == 100) {
-                    mAccFlatCounter = 0;
-                    mAccTiltCounter = 0;
-                }
-
-                if (mAccTiltCounter == 30) {
-                    btnStartStop.setChecked(false);
-                    mAccTiltCounter = 0;
-                }
-
                 if (irCenterReading < 0.6f) {
-                    m_ioio_thread.move(0.5f, 0.5f, true, true);
+                    m_ioio_thread.move(0.2f, 0.2f, true, true);
                 } else {
                     m_ioio_thread.turn(1200);
                 }
@@ -172,8 +157,6 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
                 if (irRightReading > 0.6f) {
                     m_ioio_thread.turn(1200);
                 }
-                */
-                // ***********************************************************
 
             } else {
                 m_ioio_thread.move(0.0f, 0.0f, false, false);
@@ -183,20 +166,11 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         // sensors unused for the moment.  may want to implement later
         if (event.sensor.getType() == Sensor.TYPE_GRAVITY) {
             mGravity = event.values;
-            // Log.d("robo", "got gravity");
         }
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE)
             mGyro = event.values;
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             mAcc = event.values;
-            if (mAcc != null) {
-                int count = 1;
-                for (float reading : mAcc) {
-                    //System.out.println("ACCEL " + count + ": " + reading);
-                    //count++;
-                }
-                //System.out.println("--------");
-            }
         }
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
             mGeomagnetic = event.values;
@@ -213,7 +187,7 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
 
     //set the text of any text view in this application
     public void setText(final String str, final TextView tv) {
-        // Log.d("robo", "setText");
+        //Log.i("robo", "setText");
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -323,12 +297,6 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         //Log.i(TAG, "Input frame is " + inputFrame.rgba().width() + " by " + inputFrame.rgba().height());
         mRgba = inputFrame.rgba();
 
-        // Rotate mRgba 90 degrees
-        //Core.transpose(mRgba, mRgbaT);
-        //Size size = new Size(100, 100);
-        //Imgproc.resize(mRgbaT, mRgbaF, mRgbaF.size(), 2,0, 0);
-        //Core.flip(mRgbaF, mRgba, 1 );
-
         Thread zxingThread = new Thread() {
             @Override
             public void run() {
@@ -358,15 +326,15 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
         @Override
         public void onManagerConnected(int status) {
             switch (status) {
-                case LoaderCallbackInterface.SUCCESS:
-                {
+                case LoaderCallbackInterface.SUCCESS: {
                     Log.i(TAG, "OpenCV loaded successfully");
                     mOpenCvCameraView.enableView();
-                } break;
-                default:
-                {
+                }
+                break;
+                default: {
                     super.onManagerConnected(status);
-                } break;
+                }
+                break;
             }
         }
     };
@@ -375,11 +343,11 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
 
         Bitmap bMap = Bitmap.createBitmap(mRgba.width(), mRgba.height(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(mRgba, bMap);
-        int[] intArray = new int[bMap.getWidth()*bMap.getHeight()];
+        int[] intArray = new int[bMap.getWidth() * bMap.getHeight()];
         //copy pixel data from the Bitmap into the 'intArray' array
         bMap.getPixels(intArray, 0, bMap.getWidth(), 0, 0, bMap.getWidth(), bMap.getHeight());
 
-        LuminanceSource source = new RGBLuminanceSource(bMap.getWidth(), bMap.getHeight(),intArray);
+        LuminanceSource source = new RGBLuminanceSource(bMap.getWidth(), bMap.getHeight(), intArray);
 
         BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
         Reader reader = new QRCodeMultiReader();
@@ -388,10 +356,24 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
             Result result = reader.decode(bitmap);
             Log.i(TAG, "CODE FOUND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             Log.i(TAG, result.getText());
+            if (result.getText().equals("START")) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnStartStop.setChecked(true);
+                    }
+                });
+            } else if (result.getText().equals("STOP")) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnStartStop.setChecked(false);
+                    }
+                });
+            }
         } catch (NotFoundException e) {
             Log.i(TAG, "Code Not Found");
             e.printStackTrace();
         }
-
     }
 }
