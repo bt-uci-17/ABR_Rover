@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -143,6 +144,12 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
             setText(String.format("%.3f", irRightReading), irRightText);
 
             if (btnStartStop.isChecked()) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnStartStop.setBackgroundColor(Color.RED);
+                    }
+                });
 
                 if (irCenterReading < 0.6f) {
                     m_ioio_thread.move(0.2f, 0.2f, true, true);
@@ -159,8 +166,17 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
                 }
 
             } else {
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        btnStartStop.setBackgroundColor(Color.GREEN);
+                    }
+                });
+
                 m_ioio_thread.move(0.0f, 0.0f, false, false);
             }
+            
         }
 
         // sensors unused for the moment.  may want to implement later
@@ -361,6 +377,7 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
                     @Override
                     public void run() {
                         btnStartStop.setChecked(true);
+                        btnStartStop.setBackgroundColor(Color.RED);
                     }
                 });
             } else if (result.getText().equals("STOP")) {
@@ -368,6 +385,7 @@ public class Main_activity extends Activity implements IOIOLooperProvider, Senso
                     @Override
                     public void run() {
                         btnStartStop.setChecked(false);
+                        btnStartStop.setBackgroundColor(Color.GREEN);
                     }
                 });
             }

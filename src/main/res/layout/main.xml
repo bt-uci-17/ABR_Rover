@@ -16,7 +16,8 @@
 
     <LinearLayout android:orientation="vertical"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:baselineAligned="false">
 
         <TextView
             android:id="@+id/ir_label"
@@ -33,7 +34,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/ir_left"
-            android:paddingTop="8dp"
+            android:paddingTop="16dp"
             android:textAllCaps="true"
             android:textSize="18sp" />
 
@@ -42,8 +43,8 @@
             android:layout_height="wrap_content"
             android:id="@+id/irLeft"
             android:text="0.0"
-            android:paddingLeft="64dp"
             android:layout_weight="1"
+            android:paddingLeft="32dp"
             android:textAllCaps="true"
             android:textSize="18sp" />
 
@@ -53,6 +54,7 @@
             android:layout_height="wrap_content"
             android:text="@string/ir_center"
             android:layout_weight="1"
+            android:paddingTop="16dp"
             android:textAllCaps="true"
             android:textSize="18sp" />
 
@@ -61,8 +63,8 @@
             android:layout_height="wrap_content"
             android:id="@+id/irCenter"
             android:text="0.0"
-            android:paddingLeft="48dp"
             android:layout_weight="1"
+            android:paddingLeft="32dp"
             android:textAllCaps="true"
             android:textSize="18sp"/>
 
@@ -71,6 +73,7 @@
             android:layout_height="wrap_content"
             android:text="@string/ir_right"
             android:layout_weight="1"
+            android:paddingTop="16dp"
             android:textAllCaps="true"
             android:textSize="18sp"/>
 
@@ -88,14 +91,12 @@
             android:id="@+id/buttonStartStop"
             android:layout_width="match_parent"
             android:layout_height="100dp"
-            android:background="@color/gray"
+            android:background="@color/green"
             android:textOn="@string/stop"
             android:textOff="@string/start"
             android:textColor="@color/white"
             android:textSize="32sp"/>
 
-
     </LinearLayout>
-
 
 </LinearLayout>
